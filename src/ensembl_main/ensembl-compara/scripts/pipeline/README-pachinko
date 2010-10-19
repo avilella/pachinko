@@ -1,0 +1,276 @@
+ABOUT
+~~~~~
+
+This document describes how to run the pachinko pipeline. Most is all
+taken care of by the system, here is a brief explanation of what it is
+internally doing and the software it is using:
+
+- Loads the genetree tables from an existing reuse_db genetree run
+
+- Downloads and indexes transcriptome entries
+
+- Performs hmmsearch and uclust of the transcriptome files against the
+  gene families
+
+- Clusters and aligns the reads into the genetrees with pagan
+
+- Assembles the transcripts with velvet columbus, bwa and samtools
+
+- Predicts the translations for the transcripts with exonerate
+  protein2genome
+
+The pachinko process is a continuation of the EnsemblCompara GeneTrees
+pipeline, which contains sets of alignments and annotated trees for
+genome-wide protein coding families. Check the information available
+on the Genome Research publication and on the ensembl_compara source
+code for more information.
+
+
+1- code contained in the pachinko bundle
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  A copy of the following perl libraries should be in your pachinko bundle:
+
+  sep2009 bioperl-live (BioPerl-1.6.1)
+  ensembl stable bioperl-live (bioperl-1-2-3)
+  bioperl-run (1.4) for CodeML
+  ensembl
+  ensembl-compara
+  ensembl-hive
+  ensembl-analysis
+  ensembl-pipeline
+  Data-UUID-1.215
+
+  executables
+  ~~~~~~~~~~~
+  hmmer3
+      using hmmer3/hmmer-3.0/src/hmmsearch
+  uclust
+      using uclust/latest/uclust
+  cdbfasta
+      using cdbfasta/latest/cdbfasta/cdbfasta
+      using cdbfasta/latest/cdbfasta/cdbyank
+  velvet
+      using velvet/latest/velvet/velveth
+      using velvet/latest/velvet/velvetg
+  abyss
+      using abyss/latest/abyss-1.1.2/ABYSS/ABYSS
+  samtools
+      using samtools/latest/samtools/samtools
+      using samtools/samtools/misc/samtools.pl
+  bwa
+      using bwa/latest/bwa-0.5.7/bwa
+  pagan
+      using pagan/latest/pagan/pagan
+  exonerate
+      using exonerate/latest/exonerate-2.2.0-x86_64/bin/exonerate
+      using exonerate/latest/exonerate-2.2.0-x86_64/bin/fastasplit
+  prank
+      using prank/latest/src/prank
+  sreformat
+      using sreformat/sreformat
+
+# Optional (for QA only)
+#  maq - now bwa
+#      using avilella.maq-0.7.1/scripts/maq.pl
+#            avilella.maq-0.7.1/scripts/fq_all2std.pl
+
+1.1 Pipeline data processing
+
+  This pipeline uses ensembl-hive to automatically submit "jobs" as
+  necessary based on the input and parameters specified in the conf
+  file. This jobs are processed in parallel in a multi-CPU system, and
+  they will roughly be able to parallelize to up to 1000 CPUs. They
+  all take linearly longer to process per amount of transcriptome
+  reads, but up to the max number of CPUs available, there is no
+  noticeable bottleneck beyond the IO limits of the mysql server and
+  the filesystem.
+
+  It can be run on a system with only a handful of CPUs, like 
+  workstations with 4-24 thread configurations, but for huge datasets
+  this will probably take a very long time.
+
+1.2 Dependencies 
+
+  This pipeline assumes there is a Perl interpreter and a MySQL server
+  up and running with a user account that has granted permissions to
+  create databases.
+
+  If this is a multi-CPU system and there is no job queueing, one can
+  send jobs to the background, but this is only recommended for
+  small configurations like workstations, not CPU clusters/farms.
+
+  If this is a multi-CPU system with job queueing software, you can
+  use the ensembl-hive notation to send jobs using:
+
+  LSF             (installed by default)
+  Sun Grid Engine (email us if you only have this)
+  Amazon Cloud    (email us if you only have this)
+
+  In terms of storage, the pipeline assumes there are two types of
+  directories:
+
+  system-wide visible directories where the input can be seen by all
+  nodes in the cluster/farm
+
+  Temporary directories created automatically via the ensembl-hive for
+  each node to create intermediate files that are deleted at the end
+  of each job (default is /tmp). A few GBs of available space is
+  assumed to be available in the tmp directory.
+
+1.3 Perl environment in bash
+
+  Beware the pipeline has been seen to misbehave in different shell
+  flavours, and is mostly tested under bash:
+
+  $ BASEDIR=/some/path/to/pachinko_bundle/src
+  $ export PERL5LIB=${BASEDIR}/ensembl/modules:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/ensembl-compara/modules:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/ensembl-pipeline/modules:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/ensembl-analysis/modules:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/ensembl-hive/modules:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/bioperl-live:${PERL5LIB}
+  $ export PERL5LIB=${BASEDIR}/bioperl-run:${PERL5LIB}
+
+  Example of a working PERL5LIB in one line (where basedir is /nfs/users/nfs_a/avilella/src):
+
+  export PERL5LIB=/nfs/users/nfs_a/avilella/src/bioperl-1.6.1:/nfs/users/nfs_a/avilella/src/abel/bioperl-run:/nfs/users/nfs_a/avilella/src/ensembl_main/ensembl-hive/modules:/nfs/users/nfs_a/avilella/src/ensembl_main/ensembl-compara/modules:/nfs/users/nfs_a/avilella/src/ensembl_main/ensembl/modules:/nfs/users/nfs_a/avilella/src/ensembl_main/ensembl-analysis/modules:/nfs/users/nfs_a/avilella/src/ensembl_main/ensembl-pipeline/modules:/nfs/users/nfs_a/avilella/src/bioperl-live/trunk:/nfs/users/nfs_a/avilella/src/bioperl-run/trunk:/nfs/users/nfs_a/avilella/.cpan/build/Statistics-Descriptive-2.6/blib/lib:/nfs/users/nfs_a/avilella/.cpan/build/Devel-NYTProf-2.07/blib/lib
+
+  Another example in a different farm:
+
+  export PERL5LIB=$PERL5LIB:/homes/avilella/src/BioPerl-1.6.1:/homes/avilella/src/Data-UUID-1.215/lib64/perl5/site_perl/5.8.5/x86_64-linux-thread-multi:/homes/avilella/src/ensembl_main/ensembl/modules:/homes/avilella/src/ensembl_main/ensembl-compara/modules:/homes/avilella/src/ensembl_main/ensembl-hive/modules:/homes/avilella/src/ensembl_main/ensembl-analysis/modules:/homes/avilella/src/ensembl_main/ensembl-pipeline/modules
+
+  All the paths for the binaries are defined in the config file. The
+  only directory that needs to be in the PATH is the ehive scripts dir. For example:
+
+  export PATH=$PATH:/homes/avilella/src/ensembl_main/ensembl-hive/scripts
+
+1.4 CPAN Perl modules that should be installed system-wide:
+  www.cpan.org
+
+  DBI
+  DBD::mysql
+
+
+2- Creating the configuration file
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   All the information about the input and parameters to run the
+   pipeline is defined in the config file. An example config file to
+   be used as a template is available at:
+
+   src/ensembl-compara/scripts/pipeline/pachinko.conf.example
+
+   Save it with a different name (e.g. /my/dir/p.conf) and edit the
+   input information for your analysis.
+
+   It should contain the details about the new database you will
+   create for your analysis, the input files you will be analysing,
+   the reference ensembl_compara database you will be using and the
+   set of parameter for the different runnables.
+
+   Leave the default parameters in case of doubt. Don't hesitate in
+   emailing us for questions.
+
+
+3- Run the pachinko_load.pl script
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   The pachinko_load.pl script use the information in the conf file to
+   connect to the database server, create your new analysis database
+   and upload the pipeline modules needed for all your input files.
+
+ $ perl src/ensembl-compara/scripts/pipeline/pachinko_load.pl -conf /my/dir/p.conf
+
+4- Running the pipeline
+   ~~~~~~~~~~~~~~~~~~~~
+
+   Remember to first make sure that the available hive scripts are
+   available in one's path (see above). E.g.:
+
+   $ export PATH=$PATH:$BASEDIR/ensembl-hive/scripts
+
+       
+   There are two options for running the beekepers, one which uses a
+   job submission system (e.g. LSF), and another that uses the cores
+   in the local machine only. If using the local machine, add the
+   -local flag to the command and the workers will run as background
+   system commands rather than being submited to an LSF resource.
+
+   To set the pipeline to run, use the "loop" option:
+
+   $ beekeeper.pl -url $PACHINKO_URL -loop
+
+   Running the complete pipeline can take from hours to days depending
+   on the size of the input files, mostly split into two long parts:
+
+   - searching the reads against the reference   (usearch / modelsearch)
+   - aligning the reads against each gene family (pachinkoalign)
+
+   The rest of the analyses download, prepare and store the data that
+   is going to be analysed.
+
+   If, for some reason, something goes wrong with the pipeline, it can
+   sometimes be kicked back into action using "sync":
+
+  $ beekeeper.pl -url $PACHINKO_URL -sync
+
+  If you or your queueing system killed all running jobs, you can
+  bring the beekeeper.pl back to sync with something like:
+
+  $ beekeeper.pl -url $PACHINKO_URL -alldead
+
+  If you want to manually run one of the jobs in the pipeline in
+  debugging mode to see if everything is working as expected, query
+  the db for your analysis_job_id and use the runWorker.pl script like
+  this:
+
+ $ mysql $PACHINKO_DBNAME -e \
+   "select * from analysis_job aj, analysis a where \
+   a.analysis_id=aj.analysis_id and a.logic_name='BuildSet' limit 10"
+
+  This will print the first 10 BuildSet jobs, then get the analysis_job_id
+  for one of them (e.g. 1234567) and run:
+
+ $ perl runWorker.pl -bk LOCAL \
+   -url $PACHINKO_URL -outdir '' -no_cleanup -debug 1 --job_id 1234567
+
+  Sometimes you may need to reset a particular job (or even analysis)
+  to rerun it. See the beekeeper's '-reset_job_id' and
+  '-reset_all_jobs_for_analysis' flags.
+
+  For more details on controlling the hive system, use the ehive
+  mailing list or do:
+
+  $ beekeeper.pl -help
+
+
+5- Generate basic statistics and output dumps
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   You can retrieve output from the pipeline using the pachinko_query.pl script.
+   For example, to retrieve a table for the num_input_reads statistic for every gene family, you can use:
+
+   perl src/ensembl_main/ensembl-compara/scripts/pipeline/pachinko_query.pl -url $PACHINKO_URL --family_stats=num_input_reads
+
+   node_id,  tag,              value
+   340857,   num_input_reads,  275
+   392245,   num_input_reads,  0
+   223357,   num_input_reads,  1
+   391082,   num_input_reads,  7
+   223372,   num_input_reads,  0
+   223610,   num_input_reads,  0
+   292419,   num_input_reads,  4
+   388420,   num_input_reads,  0
+   [...]
+
+   For example, to retrieve all the contigs produced at any point, you can use:
+## TO BE ADDED ##    
+## TO BE ADDED ##    6-  Quality Control modules
+## TO BE ADDED ##        ~~~~~~~~~~~~~~~~~~~~~~~
+## TO BE ADDED ##    
+## TO BE ADDED ##    7- Creating ftp dumps
+## TO BE ADDED ##       ~~~~~~~~~~~~~~~~~~
+
+
+
