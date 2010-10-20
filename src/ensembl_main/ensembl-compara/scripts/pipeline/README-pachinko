@@ -62,6 +62,11 @@ code for more information.
       using bwa/latest/bwa-0.5.7/bwa
   pagan
       using pagan/latest/pagan/pagan
+      requires libbbost libraries
+
+  (you may need to recompile it if you have a slightly different
+  version of the libboost libraries)
+
   exonerate
       using exonerate/latest/exonerate-2.2.0-x86_64/bin/exonerate
       using exonerate/latest/exonerate-2.2.0-x86_64/bin/fastasplit
