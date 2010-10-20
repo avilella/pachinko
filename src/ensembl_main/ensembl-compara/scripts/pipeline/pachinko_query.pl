@@ -108,9 +108,17 @@ sub dump_transcripts {
   $self->{memberDBA} = $self->{comparaDBA}->get_MemberAdaptor;
   my $source_name = 'EXTERNALCDS';
   $source_name = 'ENSEMBLTRANS' if ($dump_transcripts =~ /ENSEMBLTRANS/);
-  $source_name = 'ENSEMBLPEP' if ($dump_transcripts =~ /ENSEMBLPEP/);
-  foreach my $transcript (@{$self->{memberDBA}->fetch_all_by_source_genome_db_id($source_name,999999)}) {
-    my $sequence = $transcript->sequence;
+  $source_name = 'ENSEMBLPEP'   if ($dump_transcripts =~ /ENSEMBLPEP/);
+  $source_name = 'ENSEMBLGENE'  if ($dump_transcripts =~ /ENSEMBLGENE/);
+  my $taxon_id = undef; my $genome_db_id = 999999; my @transcripts;
+  if ($dump_transcripts =~ /taxon=(\d+)/) { $taxon_id = $1; }
+  @transcripts = @{$self->{memberDBA}->fetch_all_by_source_genome_db_id($source_name,$genome_db_id)} unless (0 < $taxon_id);
+  @transcripts = @{$self->{memberDBA}->fetch_all_by_source_taxon($source_name,$taxon_id)} if (0 < $taxon_id);
+  foreach my $transcript (@transcripts) {
+    my $sequence;
+    $sequence = $transcript->sequence;
+    eval { $sequence = $transcript->sequence_cds if ($dump_transcripts =~ /sequence_cds/);};
+    next unless (defined $sequence && length($sequence)>3);
     my $transcript_id = $transcript->stable_id;
     my $description = $transcript->description;
     my $taxon_id = $transcript->taxon_id;
