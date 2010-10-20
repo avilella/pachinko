@@ -1,0 +1,79 @@
+[
+  { # information to connect to compara/hive database
+    TYPE => COMPARA,
+    '-host'     => "mysql.server.name",
+    '-port'     => "3306",
+    '-user'     => "username",
+    '-pass'     => "password",
+    '-dbname'   => "database_name_striacosta_1",
+    '-adaptor'  => "Bio::EnsEMBL::Compara::DBSQL::DBAdaptor",
+  },
+
+  { TYPE => HIVE,
+  },
+
+  { TYPE => PACHINKO,
+    'reuse_db'             => 'mysql://anonymous@mysql.ebi.ac.uk:4157/ensembl_compara_metazoa_6_59',
+    'reuse_gdb'            => 'all',
+    'reuse_clusterset_id'  => 1,
+    'max_gene_count'       => 400,
+    'self_collapse'        => 1,
+    'search_mode'          =>'fast',
+    'uclust_block_num'     => 100,
+    'uclust_reference_size'=> 100000000,
+    'uclust_id'            =>'0.80',
+    'qdirs'               => '/nfs/nobackup/ensembl/avilella/striacosta_1/',
+    'cpunum'              => '100',
+    'sqlfile_comparatables'   => '/homes/avilella/pachinko/src/ensembl_main/ensembl-compara/sql/table.sql',
+    'sqlfile_comparapipeline' => '/homes/avilella/pachinko/src/ensembl_main/ensembl-compara/sql/pipeline-tables.sql',
+    'sqlfile_hive'            => '/homes/avilella/pachinko/src/ensembl_main/ensembl-hive/sql/tables.sql',
+    'sqlfile_pachinko'        => '/homes/avilella/pachinko/src/ensembl_main/ensembl-compara/sql/extra_pachinko.sql',
+    'buildset_exe'      => '/homes/avilella/pachinko/src/maq/maq-0.7.1/scripts/fq_all2std.pl',
+    'indexset_exe'      => '/homes/avilella/pachinko/src/cdbfasta/latest/cdbfasta/cdbfasta',
+    'cdbyank_exe'       => '/homes/avilella/pachinko/src/cdbfasta/latest/cdbfasta/cdbyank',
+    'buildhmm_exe'      => '/homes/avilella/pachinko/src/hmmer3/hmmer-3.0/src/hmmbuild',
+    'hmmsearch_exe'     => '/homes/avilella/pachinko/src/hmmer3/hmmer-3.0/src/hmmsearch',
+    'uclust_exe'        => '/homes/avilella/pachinko/src/uclust/latest/uclust',
+    'cdbyank_exe'       => '/homes/avilella/pachinko/src/cdbfasta/latest/cdbfasta/cdbyank',
+    'prankancestor_exe' => '/homes/avilella/pachinko/src/prank/latest/src/prank',
+    'velvet_exe'        => '/homes/avilella/pachinko/src/velvet/latest/velvet/velveth',
+    'abyss_exe'         => '/homes/avilella/pachinko/src/abyss/latest/abyss-1.1.2/ABYSS/ABYSS',
+    'bwa_exe'           => '/homes/avilella/pachinko/src/bwa/latest/bwa-0.5.8a/bwa',
+    'samtools_exe'      => '/homes/avilella/pachinko/src/samtools/latest/samtools/samtools',
+    'exonerate_exe'     => '/homes/avilella/pachinko/src/exonerate/latest/exonerate-2.2.0-x86_64/bin/exonerate',
+    'pachinkoalign_exe' => '/homes/avilella/pachinko/src/pagan/latest/pagan/pagan',
+    'sreformat_exe'     => '/homes/avilella/pachinko/src/sreformat/sreformat',
+    'tag' => 'SRR',
+  },
+
+{ TYPE => SET, 'readlen' => 'short', 'taxon_id' => 437490, 'url' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR037/SRR037002/SRR037002.fastq.gz', 'set_id' => 'SRR037002', },
+{ TYPE => SET, 'readlen' => 'short', 'taxon_id' => 437490, 'url' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR037/SRR037003/SRR037003.fastq.gz', 'set_id' => 'SRR037003', },
+
+  { TYPE => END }
+]
+
+# Information from NCBI Taxonomy, search your species name to get the taxon_id
+# e.g.
+
+# Anas platyrhynchos
+# Taxonomy ID: 8839
+# Inherited blast name: birds
+# Rank: species
+# Genetic code: Translation table 1 (Standard)
+# Mitochondrial genetic code: Translation table 2 (Vertebrate Mitochondrial)
+# Other names:
+# synonym: 	Anas boschas
+# synonym: 	Anas domesticus
+# common name: 	mallard
+# common name: 	mallard duck
+# common name: 	duck
+# common name: 	mallard ducks
+# includes: 	domestic duck
+# includes: 	Beijing ducks
+# includes: 	Peking duck
+# includes: 	Pekin duck
+# 
+# Lineage( full )
+#     cellular organisms; Eukaryota; Fungi/Metazoa group; Metazoa; Eumetazoa; Bilateria; Coelomata; Deuterostomia; Chordata; Craniata; Vertebrata; Gnathostomata; Teleostomi; Euteleostomi; Sarcopterygii; Tetrapoda; Amniota; Sauropsida; Sauria; Archosauria; Dinosauria; Saurischia; Theropoda; Coelurosauria; Aves; Neognathae; Anseriformes; Anatidae; Anas 
+
+#  { TYPE => SET, 'taxon_id' => 123456, 'url' => '', 'set_id' => '', },
