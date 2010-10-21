@@ -642,9 +642,7 @@ sub run_pachinkoalign {
     while (my $seq  = $fastqio->next_seq) {
       my $stable_id = $seq->display_id;
       next if (!defined $self->{to_root} && !defined ($self->{read_placement_sets}{$read_set_id}{$stable_id}));
-      my @values = values %{$self->{tid_qtaxon_id}};
-      my $new_description =  $seq->description; $new_description .= " TID=" . $values[0] if (1 == scalar @values);
-      $seq->description($new_description);
+      $self->add_tid_to_seq($seq);
       $read_setout->write_seq($seq);
     }
     $read_setout->close;
@@ -656,10 +654,7 @@ sub run_pachinkoalign {
     my $fastqio = Bio::SeqIO->new(-file => "<$specific_readsfile", -format => $format);
     while (my $seq  = $fastqio->next_seq) {
       my $stable_id = $seq->display_id;
-
-      my @values = values %{$self->{tid_qtaxon_id}};
-      my $new_description =  $seq->description; $new_description .= " TID=" . $values[0] if (1 == scalar @values);
-      $seq->description($new_description);
+      $self->add_tid_to_seq($seq);
       $read_setout->write_seq($seq);
     }
     $read_setout->close;
@@ -1177,7 +1172,6 @@ sub parse_alignment {
     my $sequence = $seq->seq;
     throw("Error fetching sequence from output alignment") unless(defined($sequence));
     $self->{align_hash}{$id} = $sequence;
-    print STDERR "[$count]\n" if ($self->debug && $count++ % 100);
   }
 
   return 1;
@@ -1617,7 +1611,6 @@ sub run_this_columbus {
   #      $self->run_maq($this_tid,$id1) if (defined($velvetfile) && 1 != $self->{454});
   #      $self->run_bwasw($this_tid,$id1) if (defined($velvetfile) && 1 == $self->{454});
   $self->run_bwasw($this_tid,$id1,undef,$velvetfile) if (defined($velvetfile));
-
   $self->run_exonerate($this_tid,$id1) if (defined($velvetfile));
 }
 
@@ -2062,11 +2055,11 @@ sub run_bwasw {
   # pileup & consensus
   # FIXME: -D1 is depth 1, which is not conservative
   my $consensus_fastq_filename = "$contigs_dir/cns.fastq";
-  $cmd = "$samtools_executable pileup -cf $contigsfile $contigsfile.bam.srt.bam | $samtools_dir/misc/samtools.pl pileup2fq -D1 > $consensus_fastq_filename";
+  my $errorfile = $self->worker_temp_directory . "$this_tid.$id1.run_bwasw.err";
+  $cmd = "$samtools_executable pileup -cf $contigsfile $contigsfile.bam.srt.bam | $samtools_dir/misc/samtools.pl pileup2fq -D1 > $consensus_fastq_filename 2>$errorfile";
   print STDERR "$cmd && " if ($self->debug);
-  $DB::single=1;1;#??
   unless(system("$cmd") == 0) {    print("$cmd\n");    $self->throw("error running samtools pileup and consensus: $!\n");  }
-
+  # $DB::single=$self->debug;1;#??
   my $consio = Bio::SeqIO->new
     (-format => 'fastq',
      -file => $consensus_fastq_filename);
@@ -2075,6 +2068,14 @@ sub run_bwasw {
   my $onelineconsout = Bio::SeqIO->new
     (-format => 'fastq',
      -file => ">$consfile");
+
+  if (!-z $errorfile) {
+    open ERRORFILE, $errorfile or die $!; my $line = <ERRORFILE>; close ERRORFILE;
+    if ($line =~ /Use of uninitialized value/ || $line =~ /samtools.pl/) {
+      eval {$consio->next_seq;};
+      if ($@) { $onelineconsout->close; $self->{consfile} = $consfile; return 1;}
+    }
+  }
 
   while (my $seq = $consio->next_seq) {
     next if ($seq->seq =~ /^n+$/);
@@ -2205,7 +2206,8 @@ sub run_exonerate {
   my $velvetfile = $self->{velvetfile};
   my $consfile = $self->{consfile};
   if (-z $consfile) {
-    throw ("Consensus file is empty: $consfile\n");
+    warn("Consensus file is empty: $consfile\n");
+    return;
   }
   my $leavesfile = $self->worker_temp_directory . "$this_tid.$id1.$node_id.leaves.fasta";
   my $tleavesfile = $self->worker_temp_directory . "$this_tid.$id1.$node_id.tleaves.fasta";
@@ -2894,6 +2896,21 @@ sub dataflow_pachinko_tree {
   $self->dataflow_output_id($output_id, 0);
 }
 
+sub add_tid_to_seq {
+  my $self = shift;
+  my $seq  = shift;
+
+  my $tid_hash;
+  foreach my $tid (values %{$self->{tid_qtaxon_id}}) {
+    $tid_hash->{$tid} = 1;
+  }
+  warn "More than one TID for this qtaxon_id" if (1 < scalar keys %$tid_hash);
+  my @values = keys %$tid_hash;
+  my $new_description = $seq->description; $new_description .= " TID=" . $values[0];
+  $seq->description($new_description);
+
+  return $seq;
+}
 
 # sub merge_fragments {
 #   my $self = shift;
