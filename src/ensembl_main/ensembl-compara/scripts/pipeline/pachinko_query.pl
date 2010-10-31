@@ -110,7 +110,7 @@ sub dump_transcripts {
   $source_name = 'ENSEMBLTRANS' if ($dump_transcripts =~ /ENSEMBLTRANS/);
   $source_name = 'ENSEMBLPEP'   if ($dump_transcripts =~ /ENSEMBLPEP/);
   $source_name = 'ENSEMBLGENE'  if ($dump_transcripts =~ /ENSEMBLGENE/);
-  my $taxon_id = undef; my $genome_db_id = 999999; my @transcripts;
+  my $taxon_id = 0; my $genome_db_id = 999999; my @transcripts;
   if ($dump_transcripts =~ /taxon=(\d+)/) { $taxon_id = $1; }
   @transcripts = @{$self->{memberDBA}->fetch_all_by_source_genome_db_id($source_name,$genome_db_id)} unless (0 < $taxon_id);
   @transcripts = @{$self->{memberDBA}->fetch_all_by_source_taxon($source_name,$taxon_id)} if (0 < $taxon_id);
